@@ -14,7 +14,10 @@ load_dotenv()
 # 可配置项
 # ===========================
 ICON_FILE = "./resources/icon.png"
-SCREENSHOT_REGION_HOTKEY = getenv("SCREENSHOT_REGION_HOTKEY")
+# 编程问题
+CODE_SCREENSHOT_REGION_HOTKEY = getenv("CODE_SCREENSHOT_REGION_HOTKEY")
+# 性格测试问题
+PERSON_SCREENSHOT_REGION_HOTKEY = getenv("PERSON_SCREENSHOT_REGION_HOTKEY")
 SCREENSHOT_CANCEL_HOTKEY = getenv("SCREENSHOT_CANCEL_HOTKEY")
 
 # ===========================
@@ -23,23 +26,40 @@ SCREENSHOT_CANCEL_HOTKEY = getenv("SCREENSHOT_CANCEL_HOTKEY")
 first_point = None
 lock = threading.Lock()
 
-def on_hotkey():
-    """快捷键触发逻辑"""
+def on_code_hotkey():
     global first_point
     with lock:
         if first_point is None:
             first_point = pyautogui.position()
-            print(f"📍 已记录第一个坐标：{first_point}")
+            print(f"⌨️代码 已记录第一个坐标：{first_point}")
         else:
             second_point = pyautogui.position()
-            print(f"📍 已记录第二个坐标：{second_point}")
+            print(f"⌨️代码 已记录第二个坐标：{second_point}")
             x1 = min(first_point.x, second_point.x)
             y1 = min(first_point.y, second_point.y)
             x2 = max(first_point.x, second_point.x)
             y2 = max(first_point.y, second_point.y)
             region = (x1, y1, x2, y2)
             print(f"🎯 截图区域: {region}")
-            threading.Thread(target=take_screenshot_and_ocr, args=(region,), daemon=True).start()
+            threading.Thread(target=code, args=(region,), daemon=True).start()
+            first_point = None
+
+def on_person_hotkey():
+    global first_point
+    with lock:
+        if first_point is None:
+            first_point = pyautogui.position()
+            print(f"🧑‍🦰 性格测 已记录第一个坐标：{first_point}")
+        else:
+            second_point = pyautogui.position()
+            print(f"🧑‍🦰 性格测 已记录第二个坐标：{second_point}")
+            x1 = min(first_point.x, second_point.x)
+            y1 = min(first_point.y, second_point.y)
+            x2 = max(first_point.x, second_point.x)
+            y2 = max(first_point.y, second_point.y)
+            region = (x1, y1, x2, y2)
+            print(f"🎯 截图区域: {region}")
+            threading.Thread(target=person, args=(region,), daemon=True).start()
             first_point = None
 
 
@@ -76,9 +96,10 @@ def create_tray_icon():
 # 主程序入口
 # ===========================
 def main():
-    keyboard.add_hotkey(SCREENSHOT_REGION_HOTKEY, on_hotkey)
+    keyboard.add_hotkey(CODE_SCREENSHOT_REGION_HOTKEY, on_code_hotkey)
+    keyboard.add_hotkey(PERSON_SCREENSHOT_REGION_HOTKEY, on_person_hotkey)
     keyboard.add_hotkey(SCREENSHOT_CANCEL_HOTKEY, on_cancel_hotkey)  # ✅ 新增
-    print(f"🎯 已注册快捷键 {SCREENSHOT_REGION_HOTKEY} ：按两次选择区域截图上传")
+    print(f"🎯 已注册快捷键 {CODE_SCREENSHOT_REGION_HOTKEY} ：按两次选择区域截图上传")
     print(f"🚫 已注册取消快捷键 {SCREENSHOT_CANCEL_HOTKEY} ：清空截图点")
     t = threading.Thread(target=run_server, daemon=True)
     t.start()

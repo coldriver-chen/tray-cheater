@@ -54,6 +54,9 @@
         <div class="p-2">
             <div id="messages" class="space-y-2 h-[65vh] overflow-y-auto mb-3 p-2 bg-gray-50 rounded-lg"></div>
             <div class="flex gap-2">
+                <button id="connectBtn" onclick="connectWebSocket()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300 active:transform active:scale-95 text-sm">
+                    连接
+                </button>
                 <button onclick="clearMessage()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300 active:transform active:scale-95 text-sm">清屏</button>
                 <button onclick="closeConnection()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300 active:transform active:scale-95 text-sm">关闭连接</button>
             </div>
@@ -61,29 +64,83 @@
     </div>
 
     <script>
-        const ws = new WebSocket('ws://' + location.host + '/websocket');
-        const messagesDiv = document.getElementById('messages');
+        let ws = null;
 
-        ws.onmessage = function(event) {
-            const messageContainer = document.createElement('div');
-            messageContainer.className = 'bg-white p-2 rounded-lg shadow-sm border border-gray-200';
-            
-            const messageContent = document.createElement('div');
-            messageContent.className = 'markdown-content';
-            messageContent.innerHTML = marked.parse(event.data);
-            
-            messageContainer.appendChild(messageContent);
-            messagesDiv.appendChild(messageContainer);
-            messagesDiv.scrollTop = messagesDiv.scrollHeight;
-        };
+        function connectWebSocket() {
+            const connectBtn = document.getElementById('connectBtn');
+            connectBtn.disabled = true;
+            connectBtn.textContent = '连接中...';
+            connectBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+            connectBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
+
+            // 创建 WebSocket 连接
+            ws = new WebSocket('ws://' + location.host + '/websocket');
+
+            ws.onopen = function(event) {
+                connectBtn.textContent = '已连接';
+                connectBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                connectBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+                connectBtn.disabled = false;
+                
+                // 显示连接成功提示
+                const messageContainer = document.createElement('div');
+                messageContainer.className = 'bg-green-100 p-2 rounded-lg border border-green-200';
+                messageContainer.innerHTML = '<p class="text-green-700 text-sm">✅ 连接成功！</p>';
+                messagesDiv.appendChild(messageContainer);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            };
+
+            ws.onmessage = function(event) {
+                const messageContainer = document.createElement('div');
+                messageContainer.className = 'bg-white p-2 rounded-lg shadow-sm border border-gray-200';
+                
+                const messageContent = document.createElement('div');
+                messageContent.className = 'markdown-content';
+                messageContent.innerHTML = marked.parse(event.data);
+                
+                messageContainer.appendChild(messageContent);
+                messagesDiv.appendChild(messageContainer);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            };
+
+            ws.onerror = function(event) {
+                connectBtn.textContent = '连接失败';
+                connectBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
+                connectBtn.classList.add('bg-red-500', 'hover:bg-red-600');
+                connectBtn.disabled = false;
+                
+                // 显示连接失败提示
+                const messageContainer = document.createElement('div');
+                messageContainer.className = 'bg-red-100 p-2 rounded-lg border border-red-200';
+                messageContainer.innerHTML = '<p class="text-red-700 text-sm">❌ 连接失败，请检查服务器是否运行！</p>';
+                messagesDiv.appendChild(messageContainer);
+                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+            };
+
+            ws.onclose = function(event) {
+                connectBtn.textContent = '连接';
+                connectBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
+                connectBtn.classList.add('bg-green-500', 'hover:bg-green-600');
+                connectBtn.disabled = false;
+                
+                // 如果不是用户主动关闭，则显示提示
+                if (event.code !== 1000) {
+                    const messageContainer = document.createElement('div');
+                    messageContainer.className = 'bg-yellow-100 p-2 rounded-lg border border-yellow-200';
+                    messageContainer.innerHTML = '<p class="text-yellow-700 text-sm">⚠️ 连接已关闭 (代码: ' + event.code + ')</p>';
+                    messagesDiv.appendChild(messageContainer);
+                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+                }
+            };
+        }
 
         function clearMessage() {
             messagesDiv.innerHTML = '';
         }
 
         function closeConnection() {
-            if (ws.readyState === WebSocket.OPEN) {
-                ws.close();
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close(1000, "用户主动关闭");
                 // 显示连接已关闭的消息
                 const messageContainer = document.createElement('div');
                 messageContainer.className = 'bg-yellow-100 p-2 rounded-lg border border-yellow-200';
@@ -92,6 +149,7 @@
                 messagesDiv.scrollTop = messagesDiv.scrollHeight;
             }
         }
+        const messagesDiv = document.getElementById('messages');
     </script>
 </body>
 </html>

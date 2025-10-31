@@ -47,11 +47,6 @@ def get_ocr_result(base64_image: str) -> str:
             full_response += text_chunk
     print("\n\n")
 
-    result = get_gpt_result(full_response)
-    print(result)
-
-    q.put(result)
-
     return full_response
 
 # 截图
@@ -66,9 +61,20 @@ def take_screenshot_and_ocr(region=None):
     img_base64 = base64.b64encode(buffer.getvalue()).decode('utf-8')
     print(f" imageData: {img_base64[:50]}...")
     result = get_ocr_result(img_base64)
+    return result
+
+def code(region=None):
+    result = take_screenshot_and_ocr(region)
+    gpt_result = get_code_gpt_result(result)
+    q.put(gpt_result)
+
+def person(region=None):
+    result = take_screenshot_and_ocr(region)
+    gpt_result = get_gpt_person_result(result)
+    q.put(gpt_result)
 
 
-def get_gpt_result(prompt: str) -> str:
+def get_code_gpt_result(prompt: str) -> str:
     client = OpenAI(
         base_url=BASE_URL,
         api_key=API_KEY
@@ -88,5 +94,33 @@ def get_gpt_result(prompt: str) -> str:
             print(chunk.choices[0].delta.content, end="", flush=True)
             full_response += content
     
+    return full_response
+
+prev_prompt = ""
+def get_gpt_person_result(question: str) -> str:
+    global prev_prompt
+    prompt = "\n---\n1.根据已有答案回答问题，前后一致\t"
+    "2.前文答案未涉及随便选择\t"
+    "3.直接给出答案，第1个A第二个B，以此类推，不要做任何解释\n---\n"
+    client = OpenAI(
+        base_url=BASE_URL,
+        api_key=API_KEY
+    )
+    response = client.chat.completions.create(
+        model="Qwen/Qwen2.5-7B-Instruct",
+        messages = [
+            {"role": "user", "content": f"{prev_prompt}{prompt}{question}"}
+        ],
+        stream=True
+    )
+    full_response = ""
+    for chunk in response:
+        if not chunk.choices:
+            continue
+        if content:=chunk.choices[0].delta.content:
+            print(chunk.choices[0].delta.content, end="", flush=True)
+            full_response += content
+
+    prev_prompt += question + "\t"+ full_response
     return full_response
 
