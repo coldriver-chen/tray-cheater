@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>王强万岁</title>
+    <title>OCR问答助手</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
     <style>
@@ -46,110 +46,133 @@
     </style>
 </head>
 <body class="bg-gray-100 min-h-screen p-2">
-    <div class="max-w-md mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
-        <header class="bg-blue-500 p-3">
-            <h1 class="text-xl font-bold text-white text-center">王强万岁</h1>
+    <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
+        <header class="bg-blue-500 p-4">
+            <h1 class="text-2xl font-bold text-white text-center">OCR问答助手</h1>
+            <div class="text-white text-center text-sm mt-2" id="page-info">
+                % if total_count > 0:
+                    当前显示: {{current_index + 1}} / {{total_count}}
+                % else:
+                    暂无结果
+                % end
+            </div>
         </header>
-        
-        <div class="p-2">
-            <div id="messages" class="space-y-2 h-[65vh] overflow-y-auto mb-3 p-2 bg-gray-50 rounded-lg"></div>
-            <div class="flex gap-2">
-                <button id="connectBtn" onclick="connectWebSocket()" class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300 active:transform active:scale-95 text-sm">
-                    连接
+
+        <div class="p-4">
+            % if total_count > 0:
+                % result = results[current_index]
+                <div class="space-y-4">
+                    <!-- OCR识别结果 -->
+                    <div class="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-2">📝 OCR识别结果</h3>
+                        <div class="bg-white p-3 rounded border border-gray-300">
+                            <pre class="whitespace-pre-wrap text-sm">{{result['ocr_text']}}</pre>
+                        </div>
+                    </div>
+
+                    <!-- AI回答 -->
+                    <div class="bg-blue-50 p-4 rounded-lg border border-blue-200">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="text-lg font-semibold text-blue-800">🤖 AI回答</h3>
+                            <div class="text-sm text-blue-600">
+                                <span class="bg-blue-100 px-2 py-1 rounded">{{result['model']}}</span>
+                                <span class="ml-2 text-gray-500">{{result['timestamp']}}</span>
+                            </div>
+                        </div>
+                        <div class="markdown-content bg-white p-3 rounded border border-blue-300">
+                            {{!result['answer_html']}}
+                        </div>
+                    </div>
+                </div>
+            % else:
+                <div class="text-center py-8">
+                    <div class="text-gray-400 text-6xl mb-4">📄</div>
+                    <h3 class="text-xl font-semibold text-gray-600 mb-2">暂无结果</h3>
+                    <p class="text-gray-500">请使用快捷键截图并获取AI回答</p>
+                </div>
+            % end
+
+            <!-- 翻页控制 -->
+            % if total_count > 1:
+                <div class="flex justify-between items-center mt-6 pt-4 border-t border-gray-200">
+                    <button
+                        id="prev-btn"
+                        class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300"
+                        % if current_index == 0:
+                            disabled
+                            style="opacity: 0.5; cursor: not-allowed;"
+                        % end
+                    >
+                        ← 上一个
+                    </button>
+
+                    <div class="text-gray-600">
+                        {{current_index + 1}} / {{total_count}}
+                    </div>
+
+                    <button
+                        id="next-btn"
+                        class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg transition duration-300"
+                        % if current_index == total_count - 1:
+                            disabled
+                            style="opacity: 0.5; cursor: not-allowed;"
+                        % end
+                    >
+                        下一个 →
+                    </button>
+                </div>
+            % end
+
+            <!-- 操作按钮 -->
+            <div class="flex gap-2 mt-4">
+                <button
+                    id="latest-btn"
+                    class="flex-1 bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300"
+                >
+                    查看最新
                 </button>
-                <button onclick="clearMessage()" class="flex-1 bg-red-500 hover:bg-red-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300 active:transform active:scale-95 text-sm">清屏</button>
-                <button onclick="closeConnection()" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300 active:transform active:scale-95 text-sm">关闭连接</button>
+                <button
+                    onclick="location.reload()"
+                    class="flex-1 bg-gray-500 hover:bg-gray-600 text-white font-semibold py-2 px-3 rounded-lg transition duration-300"
+                >
+                    刷新页面
+                </button>
             </div>
         </div>
     </div>
 
     <script>
-        let ws = null;
+        // 获取当前页面信息
+        const currentIndex = parseInt('{{current_index}}');
+        const totalCount = parseInt('{{total_count}}');
 
-        function connectWebSocket() {
-            const connectBtn = document.getElementById('connectBtn');
-            connectBtn.disabled = true;
-            connectBtn.textContent = '连接中...';
-            connectBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
-            connectBtn.classList.add('bg-blue-500', 'hover:bg-blue-600');
-
-            // 创建 WebSocket 连接
-            ws = new WebSocket('ws://' + location.host + '/websocket');
-
-            ws.onopen = function(event) {
-                connectBtn.textContent = '已连接';
-                connectBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                connectBtn.classList.add('bg-green-500', 'hover:bg-green-600');
-                connectBtn.disabled = false;
-                
-                // 显示连接成功提示
-                const messageContainer = document.createElement('div');
-                messageContainer.className = 'bg-green-100 p-2 rounded-lg border border-green-200';
-                messageContainer.innerHTML = '<p class="text-green-700 text-sm">✅ 连接成功！</p>';
-                messagesDiv.appendChild(messageContainer);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            };
-
-            ws.onmessage = function(event) {
-                const messageContainer = document.createElement('div');
-                messageContainer.className = 'bg-white p-2 rounded-lg shadow-sm border border-gray-200';
-                
-                const messageContent = document.createElement('div');
-                messageContent.className = 'markdown-content';
-                messageContent.innerHTML = marked.parse(event.data);
-                
-                messageContainer.appendChild(messageContent);
-                messagesDiv.appendChild(messageContainer);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            };
-
-            ws.onerror = function(event) {
-                connectBtn.textContent = '连接失败';
-                connectBtn.classList.remove('bg-blue-500', 'hover:bg-blue-600');
-                connectBtn.classList.add('bg-red-500', 'hover:bg-red-600');
-                connectBtn.disabled = false;
-                
-                // 显示连接失败提示
-                const messageContainer = document.createElement('div');
-                messageContainer.className = 'bg-red-100 p-2 rounded-lg border border-red-200';
-                messageContainer.innerHTML = '<p class="text-red-700 text-sm">❌ 连接失败，请检查服务器是否运行！</p>';
-                messagesDiv.appendChild(messageContainer);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
-            };
-
-            ws.onclose = function(event) {
-                connectBtn.textContent = '连接';
-                connectBtn.classList.remove('bg-green-500', 'hover:bg-green-600');
-                connectBtn.classList.add('bg-green-500', 'hover:bg-green-600');
-                connectBtn.disabled = false;
-                
-                // 如果不是用户主动关闭，则显示提示
-                if (event.code !== 1000) {
-                    const messageContainer = document.createElement('div');
-                    messageContainer.className = 'bg-yellow-100 p-2 rounded-lg border border-yellow-200';
-                    messageContainer.innerHTML = '<p class="text-yellow-700 text-sm">⚠️ 连接已关闭 (代码: ' + event.code + ')</p>';
-                    messagesDiv.appendChild(messageContainer);
-                    messagesDiv.scrollTop = messagesDiv.scrollHeight;
-                }
-            };
-        }
-
-        function clearMessage() {
-            messagesDiv.innerHTML = '';
-        }
-
-        function closeConnection() {
-            if (ws && ws.readyState === WebSocket.OPEN) {
-                ws.close(1000, "用户主动关闭");
-                // 显示连接已关闭的消息
-                const messageContainer = document.createElement('div');
-                messageContainer.className = 'bg-yellow-100 p-2 rounded-lg border border-yellow-200';
-                messageContainer.innerHTML = '<p class="text-yellow-700 text-sm">连接已关闭</p>';
-                messagesDiv.appendChild(messageContainer);
-                messagesDiv.scrollTop = messagesDiv.scrollHeight;
+        function goToPage(page) {
+            if (page === 'latest') {
+                window.location.href = '/';
+            } else {
+                window.location.href = '/?page=' + page;
             }
         }
-        const messagesDiv = document.getElementById('messages');
+
+        // 绑定按钮事件
+        document.getElementById('prev-btn')?.addEventListener('click', () => {
+            if (currentIndex > 0) {
+                goToPage(currentIndex - 1);
+            }
+        });
+
+        document.getElementById('next-btn')?.addEventListener('click', () => {
+            if (currentIndex < totalCount - 1) {
+                goToPage(currentIndex + 1);
+            }
+        });
+
+        document.getElementById('latest-btn')?.addEventListener('click', () => {
+            goToPage('latest');
+        });
+
+        // 自动滚动到页面顶部
+        window.scrollTo(0, 0);
     </script>
 </body>
 </html>
