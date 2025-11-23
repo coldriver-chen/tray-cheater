@@ -13,6 +13,26 @@ app = Bottle()
 # 存储所有结果
 results = []
 
+# 思考状态管理
+is_thinking = False
+
+# 获取当前模型
+current_model_index = 0
+MODELS = [
+    "Qwen/Qwen3-Coder-30B-A3B-Instruct",
+    "Qwen/Qwen2.5-7B-Instruct",
+    "deepseek-ai/DeepSeek-V2-Chat"
+]
+
+def get_current_model():
+    """获取当前选中的模型"""
+    return MODELS[current_model_index]
+
+def set_current_model_index(index):
+    """设置当前模型索引"""
+    global current_model_index
+    current_model_index = index
+
 @app.route('/')
 def index():
     """主页"""
@@ -38,13 +58,36 @@ def index():
         "./resources/template.html",
         results=results,
         current_index=current_index,
-        total_count=len(results)
+        total_count=len(results),
+        current_model=get_current_model(),
+        is_thinking=is_thinking
     )
 
 @app.route('/static/<filename:path>')
 def serve_static(filename):
     """静态文件服务"""
     return static_file(filename, root='./resources/static')
+
+@app.route('/api/thinking/status')
+def get_thinking_status():
+    """获取思考状态"""
+    return {"is_thinking": is_thinking}
+
+@app.route('/api/thinking/start', method='POST')
+def start_thinking():
+    """开始思考"""
+    global is_thinking
+    is_thinking = True
+    print("🤔 AI开始思考...")
+    return {"status": "thinking_started"}
+
+@app.route('/api/thinking/stop', method='POST')
+def stop_thinking():
+    """停止思考"""
+    global is_thinking
+    is_thinking = False
+    print("✅ AI思考完成")
+    return {"status": "thinking_stopped"}
 
 def add_result(result_data):
     """添加新的结果"""

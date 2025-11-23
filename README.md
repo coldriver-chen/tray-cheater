@@ -13,14 +13,6 @@
 
 ## 快捷键配置
 
-在 `.env` 文件中配置快捷键：
-
-```bash
-SCREENSHOT_REGION_HOTKEY=ctrl+shift+s    # 截图快捷键
-SCREENSHOT_CANCEL_HOTKEY=ctrl+shift+c    # 取消截图
-MODEL_SWITCH_HOTKEY=ctrl+shift+m         # 切换模型
-```
-
 ## 使用方法
 
 1. **启动应用**：

@@ -49,14 +49,46 @@
     <div class="max-w-4xl mx-auto bg-white rounded-xl shadow-lg overflow-hidden">
         <header class="bg-blue-500 p-4">
             <h1 class="text-2xl font-bold text-white text-center">OCR问答助手</h1>
-            <div class="text-white text-center text-sm mt-2" id="page-info">
-                % if total_count > 0:
-                    当前显示: {{current_index + 1}} / {{total_count}}
-                % else:
-                    暂无结果
-                % end
+            <div class="text-white text-center text-sm mt-2 space-y-2">
+                <div class="flex justify-center items-center gap-2">
+                    <span class="bg-blue-600 px-3 py-1 rounded-full text-xs font-medium">当前模型</span>
+                    <span class="font-semibold">{{current_model}}</span>
+                </div>
+                <div id="page-info">
+                    % if total_count > 0:
+                        当前显示: {{current_index + 1}} / {{total_count}}
+                    % else:
+                        暂无结果
+                    % end
+                </div>
             </div>
         </header>
+
+        <!-- 思考状态显示区域 -->
+        % if is_thinking:
+            <div id="thinking-container">
+        % else:
+            <div id="thinking-container" class="hidden">
+        % end
+            <div class="bg-yellow-50 border-l-4 border-yellow-400 p-4">
+                <div class="flex items-center">
+                    <div class="flex-shrink-0">
+                        <svg class="animate-spin h-5 w-5 text-yellow-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                        </svg>
+                    </div>
+                    <div class="ml-3">
+                        <h3 class="text-sm font-medium text-yellow-800">
+                            🤖 AI正在思考中...
+                        </h3>
+                        <div class="mt-2 text-sm text-yellow-700">
+                            <p>请稍等，AI正在处理您的截图并生成回答</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
 
         <div class="p-4">
             % if total_count > 0:
@@ -173,6 +205,56 @@
 
         // 自动滚动到页面顶部
         window.scrollTo(0, 0);
+
+        // 思考状态管理
+        const thinkingContainer = document.getElementById('thinking-container');
+
+        // 显示思考状态
+        function showThinking() {
+            if (thinkingContainer) {
+                thinkingContainer.classList.remove('hidden');
+                // 自动滚动到思考状态区域
+                thinkingContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }
+        }
+
+        // 隐藏思考状态
+        function hideThinking() {
+            if (thinkingContainer) {
+                thinkingContainer.classList.add('hidden');
+            }
+        }
+
+        // 页面加载时检查是否有正在进行的思考
+        // 这里可以添加与后端的通信来获取当前思考状态
+
+        // 轮询检查思考状态
+        let pollingInterval;
+        function startPolling() {
+            pollingInterval = setInterval(async () => {
+                try {
+                    const response = await fetch('/api/thinking/status');
+                    const data = await response.json();
+                    if (data.is_thinking) {
+                        showThinking();
+                    } else {
+                        hideThinking();
+                    }
+                } catch (error) {
+                    console.log('无法获取思考状态:', error);
+                }
+            }, 1000); // 每秒检查一次
+        }
+
+        // 开始轮询
+        startPolling();
+
+        // 页面卸载时停止轮询
+        window.addEventListener('beforeunload', () => {
+            if (pollingInterval) {
+                clearInterval(pollingInterval);
+            }
+        });
     </script>
 </body>
 </html>

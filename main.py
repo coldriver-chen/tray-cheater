@@ -6,7 +6,7 @@ from PIL import Image
 import pystray
 from pystray import MenuItem as item
 from gpt import *
-from web_server import run_server, add_result
+from web_server import run_server, add_result, set_current_model_index, PORT
 from dotenv import load_dotenv
 from os import getenv
 load_dotenv()
@@ -18,7 +18,7 @@ ICON_FILE = "./resources/icon.png"
 SCREENSHOT_REGION_HOTKEY = getenv("SCREENSHOT_REGION_HOTKEY")
 SCREENSHOT_CANCEL_HOTKEY = getenv("SCREENSHOT_CANCEL_HOTKEY")
 # 模型切换快捷键
-MODEL_SWITCH_HOTKEY = getenv("MODEL_SWITCH_HOTKEY", "ctrl+shift+m")
+MODEL_SWITCH_HOTKEY = getenv("MODEL_SWITCH_HOTKEY")
 
 # ===========================
 # 全局变量
@@ -29,9 +29,11 @@ current_model_index = 0
 
 # 模型列表
 MODELS = [
+    "deepseek-ai/DeepSeek-V3.1-Terminus",
+    "Qwen/Qwen3-Coder-480B-A35B-Instruct",
     "Qwen/Qwen3-Coder-30B-A3B-Instruct",
-    "Qwen/Qwen2.5-7B-Instruct",
-    "deepseek-ai/DeepSeek-V2-Chat"
+    "MiniMaxAI/MiniMax-M2",
+    "moonshotai/Kimi-K2-Thinking"
 ]
 
 def on_screenshot_hotkey():
@@ -56,6 +58,7 @@ def on_model_switch_hotkey():
     global current_model_index
     current_model_index = (current_model_index + 1) % len(MODELS)
     current_model = MODELS[current_model_index]
+    set_current_model_index(current_model_index)
     print(f"🔄 已切换到模型: {current_model}")
 
 
@@ -70,6 +73,13 @@ def process_screenshot(region=None):
     """处理截图和AI回答"""
     global current_model_index
     try:
+        # 开始思考状态
+        import requests
+        try:
+            requests.post(f"http://localhost:{PORT}/api/thinking/start")
+        except:
+            pass
+
         # 截图并OCR识别
         result = take_screenshot_and_ocr(region)
         # 使用当前选择的模型回答问题
@@ -84,6 +94,12 @@ def process_screenshot(region=None):
         })
     except Exception as e:
         print(f"❌ 处理截图时出错: {e}")
+    finally:
+        # 停止思考状态
+        try:
+            requests.post(f"http://localhost:{PORT}/api/thinking/stop")
+        except:
+            pass
 
 
 # ===========================
@@ -114,10 +130,10 @@ def main():
     keyboard.add_hotkey(SCREENSHOT_REGION_HOTKEY, on_screenshot_hotkey)
     keyboard.add_hotkey(MODEL_SWITCH_HOTKEY, on_model_switch_hotkey)
     keyboard.add_hotkey(SCREENSHOT_CANCEL_HOTKEY, on_cancel_hotkey)
-    print(f"🎯 已注册截图快捷键 {SCREENSHOT_REGION_HOTKEY} ：按两次选择区域截图")
-    print(f"🔄 已注册模型切换快捷键 {MODEL_SWITCH_HOTKEY} ：切换AI模型")
-    print(f"🚫 已注册取消快捷键 {SCREENSHOT_CANCEL_HOTKEY} ：清空截图点")
-    print(f"📋 当前模型: {MODELS[current_model_index]}")
+    print(f"已注册截图快捷键 {SCREENSHOT_REGION_HOTKEY} ：按两次选择区域截图")
+    print(f"已注册模型切换快捷键 {MODEL_SWITCH_HOTKEY} ：切换AI模型")
+    print(f"已注册取消快捷键 {SCREENSHOT_CANCEL_HOTKEY} ：清空截图点")
+    print(f"当前模型: {MODELS[current_model_index]}")
     t = threading.Thread(target=run_server, daemon=True)
     t.start()
     icon = create_tray_icon()
